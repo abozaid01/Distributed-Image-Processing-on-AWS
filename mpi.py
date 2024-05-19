@@ -75,7 +75,6 @@ def master_node(output_folder):
         image_name = os.path.basename(image_path).split('.')[0]  # Extract image name without extension
         operation = result['operation']
         processed_image_name = f"{image_name}_{operation}.jpg"
-        print(processed_image_name)
         cv2.imwrite(os.path.join(output_folder, processed_image_name), result['data'])
     return result_list
 
