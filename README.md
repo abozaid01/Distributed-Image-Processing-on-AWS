@@ -2,6 +2,8 @@
 
 This web application allows users to upload images and perform various processing tasks on them. The application is built using Flask and leverages multi-threading for handling concurrent requests and MPI (Message Passing Interface) for parallel processing of image tasks.
 
+![Demo](Demo.gif)
+
 ## Features
 
 - Upload multiple images and specify processing operations.
