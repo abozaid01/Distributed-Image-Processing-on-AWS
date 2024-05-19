@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Upload and Processing</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="mt-5">Upload Images for Processing</h1>
+      <form
+        id="uploadForm"
+        method="post"
+        action="/upload"
+        enctype="multipart/form-data"
+      >
+        <div class="form-group">
+          <label for="files">Choose images to upload:</label>
+          <input
+            type="file"
+            id="files"
+            name="files"
+            multiple
+            class="form-control-file"
+            accept="image/*"
+            required
+          />
+        </div>
+        <div id="operationsContainer">
+          <!-- Operation selection will be added here -->
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">
+          Upload and Process
+        </button>
+      </form>
+      <div id="resultsContainer" class="mt-5">
+        <!-- Processed images will be displayed here -->
+      </div>
+    </div>
+
+    <script>
+      document.getElementById("files").addEventListener("change", function () {
+        const files = this.files;
+        const operationsContainer = document.getElementById(
+          "operationsContainer"
+        );
+        operationsContainer.innerHTML = ""; // Clear previous selections
+
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const div = document.createElement("div");
+          div.className = "form-group";
+
+          const label = document.createElement("label");
+          label.textContent = `Select operation for ${file.name}:`;
+          div.appendChild(label);
+
+          const select = document.createElement("select");
+          select.name = "operations";
+          select.className = "form-control";
+
+          const operations = [
+            { value: "edge_detection", text: "Edge Detection" },
+            { value: "color_inversion", text: "Color Inversion" },
+            { value: "grayscale", text: "Grayscale" },
+            { value: "blur", text: "Blur" },
+            { value: "threshold", text: "Threshold" },
+            { value: "resize", text: "Resize" },
+          ];
+
+          operations.forEach((op) => {
+            const option = document.createElement("option");
+            option.value = op.value;
+            option.textContent = op.text;
+            select.appendChild(option);
+          });
+
+          div.appendChild(select);
+          operationsContainer.appendChild(div);
+        }
+      });
+
+      document
+        .getElementById("uploadForm")
+        .addEventListener("submit", function (event) {
+          event.preventDefault();
+
+          const formData = new FormData(this);
+          fetch(this.action, {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (
+                data.message ===
+                "Files uploaded and processing started successfully"
+              ) {
+                // Show a message indicating processing in progress
+                const resultsContainer =
+                  document.getElementById("resultsContainer");
+                resultsContainer.innerHTML = "<h3>Processing images...</h3>";
+
+                // Make another request to fetch processed image URLs after a delay
+                setTimeout(fetchProcessedImages, 2000); // Adjust delay as needed
+              }
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+            });
+        });
+
+      function fetchProcessedImages() {
+        fetch("/get_processed_images")
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.processed_files) {
+              const resultsContainer =
+                document.getElementById("resultsContainer");
+              resultsContainer.innerHTML = "<h3>Processed Images:</h3>";
+
+              data.processed_files.forEach((url) => {
+                const img = document.createElement("img");
+                img.src = url;
+                img.className = "img-thumbnail m-2";
+                resultsContainer.appendChild(img);
+              });
+            } else {
+              console.error("Error: Failed to retrieve processed images");
+            }
+          })
+          .catch((error) => console.error("Error:", error));
+      }
+    </script>
+  </body>
+</html>

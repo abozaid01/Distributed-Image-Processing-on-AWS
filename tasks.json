@@ -1,0 +1,1 @@
+[{"image": "uploads/off.png", "operation": "grayscale"}, {"image": "uploads/lamp.png", "operation": "edge_detection"}, {"image": "uploads/plant.jpg", "operation": "blur"}, {"image": "uploads/bag.jpg", "operation": "threshold"}]

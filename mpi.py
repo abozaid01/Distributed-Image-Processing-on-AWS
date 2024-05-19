@@ -3,6 +3,7 @@ import threading
 import queue
 import cv2  # OpenCV for image processing
 from mpi4py import MPI  # MPI for distributed computing
+import json
 
 class WorkerThread(threading.Thread):
     def __init__(self, task_queue):
@@ -20,7 +21,7 @@ class WorkerThread(threading.Thread):
                     break
                 image, operation = task
                 result = self.process_image(image, operation)
-                self.send_result(result)
+                self.send_result(image, operation, result)
             except queue.Empty:
                 continue
             except Exception as e:
@@ -44,44 +45,50 @@ class WorkerThread(threading.Thread):
             result = cv2.resize(img, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_LINEAR)
         return result
 
-    def send_result(self, result):
-        self.comm.send(result, dest=0)
+    def send_result(self, image, operation, result):
+        result_data = {
+            'image': image,
+            'operation': operation,
+            'data': result
+        }
+        self.comm.send(result_data, dest=0)
 
-def distribute_tasks(image_operations, task_queue):
-    for i in range(MPI.COMM_WORLD.Get_size() - 1):
-        WorkerThread(task_queue).start()
-    for image, operation in image_operations:
-        task_queue.put((image, operation))
-    for i in range(MPI.COMM_WORLD.Get_size() - 1):
+def load_tasks(task_queue):
+    with open('tasks.json', 'r') as file:
+        tasks = json.load(file)
+        for task in tasks:
+            task_queue.put((task['image'], task['operation']))
+    for _ in range(MPI.COMM_WORLD.Get_size() - 1):
         task_queue.put(None)
 
-def master_node(image_operations, output_folder):
-    num_processes = MPI.COMM_WORLD.Get_size()
+def distribute_tasks(task_queue):
+    for _ in range(MPI.COMM_WORLD.Get_size() - 1):
+        WorkerThread(task_queue).start()
+
+def master_node(output_folder):
     result_list = []
-    for i in range(len(image_operations)):
+    num_tasks = len(json.load(open('tasks.json')))  # Get the number of tasks
+    for _ in range(num_tasks):
         result = MPI.COMM_WORLD.recv(source=MPI.ANY_SOURCE)
         result_list.append(result)
-        idx = len(result_list) - 1
-        image_name = os.path.basename(image_operations[idx][0])
-        cv2.imwrite(os.path.join(output_folder, f"{image_name}_{image_operations[idx][1]}.jpg"), result)
+        image_path = result['image']
+        image_name = os.path.basename(image_path).split('.')[0]  # Extract image name without extension
+        operation = result['operation']
+        processed_image_name = f"{image_name}_{operation}.jpg"
+        print(processed_image_name)
+        cv2.imwrite(os.path.join(output_folder, processed_image_name), result['data'])
     return result_list
 
 if __name__ == "__main__":
-    image_operations = [("images/image1.jpg", "edge_detection"),
-                        ("images/image2.jpg", "color_inversion"),
-                        ("images/image3.png", "grayscale"),
-                        ("images/image1.jpg", "blur"),
-                        ("images/image2.jpg", "threshold"),
-                        ("images/image3.png", "resize")]
-
     task_queue = queue.Queue()
-    output_folder = "output_images"
+    output_folder = "processed_uploads"
 
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        distribute_tasks(image_operations, task_queue)
-        results = master_node(image_operations, output_folder)
+        load_tasks(task_queue)
+        distribute_tasks(task_queue)
+        master_node(output_folder)
     else:
         WorkerThread(task_queue).start()
